@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>StarShit</title>
+	<style type="text/css">
+		.js-canvas { background: #000; margin: 0 auto; width: 900px; display: block; }
+	</style>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"  type="text/javascript"></script>
+	
+</head>
+<script type="text/javascript">
+	var $doc = $(document);
+	function drawCircle(ctx, x, y, radius, opacity) { 
+		ctx.fillStyle = 'rgba(255, 255, 255, ' + opacity + ')';
+		ctx.beginPath();
+		ctx.arc(x, y, radius, 0, Math.PI*2, true);
+		ctx.closePath();
+		ctx.fill();
+	}
+	var
+	_options = {
+		canvasHeight: 600,
+		canvasWidth: 900,
+		gameSpeed: 20,
+		starsCount: 300,
+		starsSpeed: 3,
+		shipSpeed: 10,
+		blasterSpeed: 5,
+		asteroidsCount: 20,
+		asteroidsSpeed: 2,
+		asteroidsCreationSpeed: 1000,
+		asteroidsRotateSpeed: 6,
+		
+	},
+	asteroidPause = 0,
+	shipSpritePosition = 2,
+	AsteroidsField = {
+		asteroids: [],
+		addAsteroids: function() {
+			setInterval(function() {
+				var 
+					x = Math.random() * _options.canvasWidth,
+					y = - 100;
+				
+				if (AsteroidsField.asteroids.length < _options.asteroidsCount) {
+					AsteroidsField.asteroids.push(new AsteroidsField.asteroid(x, y, asteroidImage, 60));
+				}	
+			}, _options.asteroidsCreationSpeed);
+		},
+		ShowAsteroids: function(showNextFrame) {
+			var frameWidth = 50;
+			
+			for(var i=0; i < AsteroidsField.asteroids.length; i++) {
+				if (AsteroidsField.asteroids[i].y > _options.canvasHeight) {
+					AsteroidsField.asteroids[i].x = Math.random() * _options.canvasWidth;
+					AsteroidsField.asteroids[i].y = -100;
+				}
+				/* столкновение с караблем */
+				if (Action.Strife(StarShip, AsteroidsField.asteroids[i], 5)) {
+					StarShip.die();
+				}
+				if (AsteroidsField.asteroids[i].currentFrame == 10) {
+					AsteroidsField.asteroids[i].currentFrame = 0;
+				}
+				console.log(showNextFrame);
+				if (showNextFrame) {
+					AsteroidsField.asteroids[i].currentFrame += 1;
+				}
+				AsteroidsField.asteroids[i].y += _options.asteroidsSpeed;
+				StarShit.ctx.drawImage(AsteroidsField.asteroids[i].image, frameWidth * AsteroidsField.asteroids[i].currentFrame, 0, 50, 50, AsteroidsField.asteroids[i].x, AsteroidsField.asteroids[i].y, AsteroidsField.asteroids[i].size, AsteroidsField.asteroids[i].size);
+			}
+			
+		},
+		asteroid: function(x, y, image, maxSize) {
+			this.size = maxSize - Math.random() * 25;
+			this.width = this.size;
+			this.height = this.size;
+			this.x = x;
+			this.y = y;
+			this.image = image;
+			this.currentFrame = Math.floor((Math.random()*10)+1)
+			this.rotateSpeed = 10;
+		},
+		imageInit: function() {
+			asteroidImage = new Image();
+			asteroidImage.src = 'asteroid_1_anim_shadow.png';
+			asteroidImage.frameWidth = 50;
+			asteroidImage.frameHeight = 50;
+			asteroidImage.frameCount = 11;
+		}
+
+	},
+	/* Объект звездного фона */
+	StarField = {
+		/* Массив звезд */
+		stars: [],
+		/* прототип звезды */
+		star: function(x, y, radius, opacity){
+			this.x = x;
+			this.y = y;
+			this.radius = radius;
+			this.opacity = opacity;
+		},
+		/* добавление звезд в массив */
+		addStars: function() {
+			for(var i=0; i < _options.starsCount; i ++) {
+				var 
+					y = Math.random() * _options.canvasHeight,
+					x = Math.random() * _options.canvasWidth;
+					
+				StarField.stars.push(new StarField.star(x, y, 1, Math.random()));
+			}
+		},
+		/* отображение звезд */
+		showStars: function() {
+			for (var i=0; i < StarField.stars.length; i++) { 
+				var currentStar = StarField.stars[i];
+				
+				if (currentStar.y > _options.canvasHeight) {
+					currentStar.x = Math.random() * _options.canvasWidth;
+					currentStar.y = 0;
+				}				
+				currentStar.y += _options.starsSpeed;
+				drawCircle(StarShit.ctx, currentStar.x, currentStar.y, 1, currentStar.opacity);
+			}
+		}
+	},
+	/* Объект высрелов */
+	Blaster = {
+		width: 7, 
+		height: 31,
+		speed: _options.blasterSpeed,
+		blastersArray: [],
+		draw: function(x, y, speed, image) {
+			this.x = x;
+			this.y = y;
+			this.speed = speed;
+			this.image = image;
+		},
+		imageInit: function() {
+			blastreImage = new Image();
+			blastreImage.src = 'blstr_7.png';
+			blastreImage.onload = function() { };
+		},
+		showBlasters: function() {
+			var blasters = Blaster.blastersArray;
+			if (blasters.length > 0) {
+				for (var i in blasters) {
+					var currentBlaster = Blaster.blastersArray[i];
+					if (currentBlaster != undefined) {
+						StarShit.ctx.drawImage(currentBlaster.image, currentBlaster.x, currentBlaster.y);
+						currentBlaster.y -= currentBlaster.speed;
+						if (currentBlaster.y < 0) {
+							Blaster.blastersArray.splice(i);
+						}
+					}
+					for(var f = 0; f < AsteroidsField.asteroids.length; f ++) {
+						if (Action.Strife(currentBlaster, AsteroidsField.asteroids[f], 5)) {
+							Blaster.blastersArray.splice(i);
+							AsteroidsField.asteroids.splice(f, 1);
+						}
+					}
+				}
+			}
+		}
+	},
+	Interface = {
+		showHelp: function() {
+			StarShit.ctx.fillStyle = "#FFFFFF";
+			StarShit.ctx.font = 'bold 30px sans-serif';
+			StarShit.ctx.fillText("Space - attack \ ←↑↓→ - controls", 10, 40);
+		}
+	},
+	GameController = {
+		/* Массив нажатий */
+		pressedKeys: [],
+		/* Прослушка событий клавиатуры */
+		keyListener: function() {
+			/* Обработчик на keyup */
+			$(window).keyup(function (evt) { 
+				var pk = GameController.pressedKeys[evt.keyCode];
+				if (pk) {
+					delete GameController.pressedKeys[evt.keyCode]; 
+				}
+			});
+			/* Обработчик на keydown */
+			$(window).keydown(function (evt){ 
+				var pk = GameController.pressedKeys[evt.keyCode];
+				if (! pk) {
+					GameController.pressedKeys[evt.keyCode] = 1;
+				}
+				if (evt.keyCode == GameController.key.attak) {
+					Blaster.blastersArray.push(new Blaster.draw(StarShip.x + StarShip.width / 2 - Blaster.width / 2, StarShip.y - StarShip.height, 50, blastreImage));
+				}
+			});
+			GameController.controlKeys();
+		},
+		/* Определения кодов клавиш */
+		key: {
+			up: 38,
+			down: 40,
+			left: 37,
+			right: 39,
+			attak: 32
+		},
+		/* Проверка нажатий клавиш управления*/
+		controlKeys: function() {
+			var 
+				ship = StarShip,
+				key = GameController.key;
+			if (GameController.pressedKeys[key.left] != undefined) {
+				ship.x -= ship.speed;
+			}
+			if (GameController.pressedKeys[key.right] != undefined) {
+				ship.x += ship.speed;
+			}
+			if (GameController.pressedKeys[key.up] != undefined) {
+				ship.y -= ship.speed;
+			}
+			if (GameController.pressedKeys[key.down] != undefined) {
+				ship.y += ship.speed;
+			}
+		}
+	},
+	StarShip = {
+		life: 100,
+		height: 40,
+		width: 30,
+		life: true,
+		speed: _options.shipSpeed,
+		x: _options.canvasWidth / 2 - 15,
+		y: _options.canvasHeight - 40,
+		imageInit: function() {
+			shipImage = new Image();
+			shipImage.src = 'tie_fighter_40.png';
+			shipImage.onload = function() { };
+		},
+		draw: function() {
+			StarShit.ctx.drawImage(shipImage, StarShip.x, StarShip.y);
+		},
+		die: function() {
+			StarShip.life = false;
+			StarShit.ctx.clearRect(0, 0, StarShit.ctx.canvas.width, StarShit.ctx.canvas.height);
+			StarShit.ctx.fillText("BOOM", StarShip.x, StarShip.y);
+			StarShit.ctx.fillText("Press F5 to begin", (StarShit.ctx.canvas.width / 2) - 100 , StarShit.ctx.canvas.height / 2);
+			StarField.showStars();
+			clearInterval('Game');
+		}
+	},
+  /* Обработка столкновений */
+  Action = {
+    Strife: function(firstObj, secondObj, assume) {
+      if ((firstObj.x > secondObj.x - assume) && (firstObj.x < (secondObj.x + secondObj.width + assume)) && (firstObj.y > secondObj.y - assume) && (firstObj.y < (secondObj.y + secondObj.height + assume))) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  },
+	StarShit = {
+		ctx: null,
+		init: function() {
+			var $canvas = $('.js-canvas')[0];
+			
+			$canvas.height = _options.canvasHeight;
+			$canvas.width = _options.canvasWidth;
+			
+			StarShit.ctx = $canvas.getContext("2d");
+			GameController.keyListener();
+			StarField.addStars();
+			AsteroidsField.addAsteroids();
+			StarShip.imageInit();
+			Blaster.imageInit();
+			AsteroidsField.imageInit();
+			
+			Game = setInterval(StarShit.drawScene, _options.gameSpeed);
+		},
+		drawScene: function() {
+			var $canvas = StarShit.ctx.canvas;
+			console.log(asteroidPause);
+			if (StarShip.life) {
+				StarShit.ctx.clearRect(0, 0, $canvas.width, $canvas.height);
+				GameController.controlKeys();
+				StarField.showStars();
+				Blaster.showBlasters();
+				Interface.showHelp();
+				StarShip.draw();
+				if (asteroidPause == _options.asteroidsRotateSpeed) {
+					asteroidPause = 0;
+					AsteroidsField.ShowAsteroids(true);
+				} else {
+					AsteroidsField.ShowAsteroids(false);
+				}
+			asteroidPause += 1;
+			}
+			
+		}
+	};
+	$doc.ready(function() {
+		StarShit.init();
+	});
+	
+	
+</script>
+
+<body>
+  <div class="container">
+		<canvas id="scene" class="js-canvas" width="900" height="600"></canvas>
+	</div> 
+</body>
+</html>
